@@ -14,7 +14,9 @@
 
 
 (defn parse-midi [filename]
-  (let [notes   [(atom []),(atom [])]
+  (let [
+        ;; notes   [(atom []),(atom [])]
+        notes   (atom [])
         current-voice   (atom "V1")
         current-time    (atom 0)
         parser  (new org.jfugue.MidiParser)
@@ -31,18 +33,27 @@
 
                    (noteEvent [note]
                      (println "note" (.getMusicString note))
-                     (let [i      (if (= "V1" @current-voice) 0 1)
-                           curvec (nth notes i)
+                     (let [temp-v (subs @current-voice 1)
+                           i      (Integer/parseInt temp-v)
                            ]
+                       ; If new voice, add new voice
+                       (while (>= i (count @notes)) 
+                         (do (swap! notes #(conj %1 (atom []))))
+                         )
 
 
                        (if (not= 0 (.getDuration note))
-                         (swap! curvec conj [@current-time, (.getValue note)])
+                         (do
+                           (println "current voice:" @current-voice "temp-v" temp-v)
+                           (println "i:" i "count notes:" (count @notes))
+                           (swap! (nth @notes i) conj [@current-time, (.getValue note)])
+                           )
                          )
                        )
                      )
 
                    (voiceEvent [voice]
+                     (println "voice:" (.getMusicString voice))
                      (swap! current-voice (fn [x] (.getMusicString voice)))
                      )
                    )
@@ -50,7 +61,7 @@
     (.addParserListener parser listener)
     (.parse parser midiseq)
     
-    notes
+    @notes
     )
   )
 
@@ -64,6 +75,26 @@
           )
     )
   )
+
+
+(defn n-merge-notes[vecs]
+  (if (= (count vecs) 1)
+    (first vecs)
+    (let [v1 (first vecs)
+          v2 (second vecs)
+          newvec (merge-notes v1 v2)]
+      (n-merge-notes (cons newvec (drop 2 vecs)))
+      )
+    ))
+  ;; (cond (= (count vecs) 1) (sort-by first @(first vecs))
+  ;;       :else               (let [v1  (sort-by first @(first vecs))
+  ;;                                 v2  (sort-by first @(second vecs))
+  ;;                                 newvec (merge-notes v1 v2)
+  ;;                                 ]
+  ;;                             (n-merge-notes (cons newvec (drop 2 vecs)))
+  ;;                             )
+  ;; ))
+
 
 (defn play-seq [notes i sleep]
   (let [curr-i  (mod i (count notes))
@@ -79,7 +110,7 @@
         speed-ratio (min speed-ratio 3.0)
         ]
     
-    (Thread/sleep (* 2 speed-ratio sleep))
+    (Thread/sleep (* 2.5 speed-ratio sleep))
 
     (sampled-piano (+ (second curr-v) @PITCH-OFFSET))
 
@@ -132,20 +163,26 @@
     )
   )
 
-
-
-(defn -main [& args]
-  (let [notes   (parse-midi "bach1.mid")
-        v1      (sort-by first @(first notes))
-        v2      (sort-by first @(second notes))
-        result  (merge-notes v1 v2)
-        ;; thread-pool (at-at/mk-pool)
+(defn mystart [filename]
+  (let [notes   (parse-midi filename)
+        notes   (map (fn [x] (sort-by first @x)) notes)
+        ;; v1      (sort-by first @(first notes))
+        ;; v2      (sort-by first @(second notes))
+        result  (n-merge-notes notes)
         ]
     (start-server 32000)
-    (while true (play-seq result 0 0))
+
+    ; Start infinite loop in new thread
+    (.start (Thread. (fn []
+                      (while true (play-seq result 0 0))
+                    )))
     )
   )
 
 
-
-
+(defn -main [& args]
+  (let [filename (or (first args) "bach1.mid")]
+    (println "Starting!")
+    (mystart filename)
+    )
+  )
