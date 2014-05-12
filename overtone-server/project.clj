@@ -9,4 +9,5 @@
                  ]
   :main ^:skip-aot overtone-server.core
   :target-path "target/%s"
+  :jvm-opts ["-Xss4M"]
   :profiles {:uberjar {:aot :all}})
