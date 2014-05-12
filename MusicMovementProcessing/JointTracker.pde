@@ -1,5 +1,10 @@
 import java.util.Arrays;
 
+
+public int[] intify(PVector v){
+  return new int[]{(int)v.x, (int)v.y, (int)v.z};
+}
+
 class JointTracker {
   int[] pos;
   int[] joints;
@@ -31,25 +36,10 @@ class JointTracker {
     this(name, JointTrackerType.POS, joint);
   }
 
-  // Convert value to range from 0 to MAX
-  public int normalizeValue(double d){
-    int i = (int)d + MAX/2;
-    /* if (i < 0){ */
-    /*   return 0; */
-    /* } else if (i > MAX){ */
-    /*   return MAX; */
-    /* } else{ */
-    /*   return i; */
-    /* } */
-    return (int)d;
-  }
-
-
-
   private int[] getJointValue(SimpleOpenNI context, int joint){
     PVector j = new PVector();
     context.getJointPositionSkeleton(1, joint, j);
-    return new int[]{(int)j.x, (int)j.y, (int)j.z};
+    return intify(j);
   }
 
   public int[] getValue(SimpleOpenNI context){
@@ -64,16 +54,13 @@ class JointTracker {
 
       return new int[]{j1[0] - j2[0], j1[1] - j2[1], j1[2] - j2[2]};
     }
-    else if (this.trackerType == JointTrackerType.GESTURE_HAND1){
+    else if (this.trackerType == JointTrackerType.GESTURE_SPEED){
       int[] j = getJointValue(context, this.joints[0]);
 
-      boolean trackResult = this.gestureTracker.track(j);
-      if (trackResult){
-        this.gestureComplete = true;
-      }
-      /* System.out.println(this.gestureTracker.getSpeed()); */
+      this.gestureTracker.track(j);
 
-      return new int[]{0,0,0};
+
+      return this.gestureTracker.getSpeed();
     }
     else{
       System.err.println("Not Valid JointTrackerType!");
@@ -109,85 +96,51 @@ class JointTracker {
   public String getName(){ return this.name; }
 }
 
+
 class GestureTracker {
+  LinkedList<PVector> history;
 
-  int[] joints;
 
-  LinkedList<Integer> history;
-  LinkedList<Integer> deltaHistory;
+  int HISTORY_NUM_FRAMES = 10;
 
-  GestureTrackerPhase phase;
-
-  int GESTURE_MAX_FRAMES = 10;
-  int frames = 0;
-  
-
-  /* int speed; */
-  int totalMovement;
+  PVector totalMovement;
 
   public GestureTracker(){
-    joints = new int[3];
-    totalMovement = 0;
+    totalMovement = new PVector();
 
     // Track 10 frames at a time
-    history = new LinkedList<Integer>();
-    deltaHistory = new LinkedList<Integer>();
+    history = new LinkedList<PVector>();
 
-    phase = GestureTrackerPhase.NONE;
-    frames = 0;
   }
 
   public boolean track(int[] j){
-    // Track only z for now
-    if (history.size() >= 10){
-      int old = history.remove();
-      int newLast = history.peekLast();
+    PVector vecJ = new PVector(j[0], j[1], j[2]);
 
-      totalMovement -= newLast - old;
+    if (history.size() >= HISTORY_NUM_FRAMES){
+      PVector old = history.remove();
+      PVector newLast = (history.peekLast()).get();
+
+      newLast.sub(old);
+      totalMovement.sub(newLast);
     }
 
     if (history.size() >= 1){
-      int oldFirst = history.peekFirst();
-      int newMovementDelta = j[2] - oldFirst;
+      PVector oldFirst = history.peekFirst();
 
-      totalMovement += newMovementDelta;
-    }
-    history.add(j[2]);
+      PVector newMovementDelta = vecJ.get();
+      newMovementDelta.sub(oldFirst);
 
-    // Track phase
-    int speed = getSpeed();
-    if (speed < -30) {
-      frames = 0;
-      phase = GestureTrackerPhase.DEC;
-      /* System.out.println("DEC!"); */
+      totalMovement.add(newMovementDelta);
     }
-    else if (speed > 30){
-      if (phase == GestureTrackerPhase.DEC && frames >= 4){
-        System.out.println("DETECTED :) frames: " + frames);
-        frames = 0;
-        return true;
-      }
-      /* System.out.println("INC!"); */
-      phase = GestureTrackerPhase.INC;
-    }
-    else{
-      // If first phase started but didn't complete
-      if (phase == GestureTrackerPhase.DEC){
-        frames++;
-      }
+    history.add(vecJ);
 
-      if (frames > GESTURE_MAX_FRAMES){
-        System.out.println("Lost gesture!");
-        frames = 0;
-        phase = GestureTrackerPhase.NONE;
-      }
-    }
-
-    return false;
+    return true;
   }
 
 
-  public int getSpeed(){
-    return totalMovement/10;
+  public int[] getSpeed(){
+    PVector speed = totalMovement.get();
+    speed.div(HISTORY_NUM_FRAMES);
+    return intify(speed);
   }
 }

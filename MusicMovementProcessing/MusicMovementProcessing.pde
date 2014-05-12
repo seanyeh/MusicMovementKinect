@@ -60,6 +60,10 @@ void setup(){
   joints = new LinkedList<JointTracker>();
   joints.add(new JointTracker("LEFT_HAND", JointTrackerType.DIFF,
         SimpleOpenNI.SKEL_RIGHT_HAND, SimpleOpenNI.SKEL_RIGHT_SHOULDER));
+  
+  joints.add(new JointTracker("RIGHT_HAND_SPEED", JointTrackerType.GESTURE_SPEED,
+        SimpleOpenNI.SKEL_LEFT_HAND));
+
   /* joints.add(new JointTracker("RIGHT_HAND", SimpleOpenNI.SKEL_RIGHT_HAND)); */
   /*  */
   /* joints.add(new JointTracker("LEFT_HAND", SimpleOpenNI.SKEL_LEFT_HAND)); */

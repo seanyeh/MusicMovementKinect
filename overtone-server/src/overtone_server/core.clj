@@ -9,6 +9,8 @@
 ;; Global vars
 (def PITCH-OFFSET (atom 0))
 
+(def DEFAULT-SPEED 50.0)
+(def SPEED (atom DEFAULT-SPEED))
 
 
 (defn parse-midi [filename]
@@ -68,8 +70,16 @@
         next-i  (mod (inc i) (count notes))
         curr-v  (nth notes curr-i)
         next-v  (nth notes next-i)
+
+        ; Avoid divide by 0
+        norm-speed  (+ @SPEED 1)
+        speed-ratio (/ DEFAULT-SPEED norm-speed)
+
+        ;; Limit max speed
+        speed-ratio (min speed-ratio 3.0)
         ]
-    (Thread/sleep (* 2 sleep))
+    
+    (Thread/sleep (* 2 speed-ratio sleep))
 
     (sampled-piano (+ (second curr-v) @PITCH-OFFSET))
 
@@ -82,7 +92,11 @@
 
 
 (defn adjust-speed [msg]
-
+  (let [args  (:args msg)
+        speed (map #(Math/abs %1) args)
+        speed (reduce + speed)]
+    (swap! SPEED (fn [x] speed))
+  )
   )
 
 (defn scale-num [inMin inMax outMin outMax x]
@@ -110,6 +124,7 @@
     ;; (osc-handle server "/HAND_SPAN"   (partial ctl-reverb inst-id))
 
     (osc-handle server "/LEFT_HAND"  shift-pitch)
+    (osc-handle server "/RIGHT_HAND_SPEED" adjust-speed)
 
     ;; (osc-handle server "/LEFT_HAND"   (partial ctl-bpf inst-id))
     ;; (osc-handle server "/head" on-rh-move)
