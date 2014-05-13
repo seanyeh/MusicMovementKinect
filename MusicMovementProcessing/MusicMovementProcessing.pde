@@ -19,6 +19,9 @@ LinkedList<JointTracker> joints;
 Particle particles[];
 float minDistance = 120;
 
+JointTracker rightHandTracker;
+LinkedList<Circle> RHCircles = new LinkedList<Circle>();
+
 void setup(){
   size(displayWidth, displayHeight);
 
@@ -67,6 +70,10 @@ void setup(){
   /* joints.add(new JointTracker("RIGHT_HAND", SimpleOpenNI.SKEL_RIGHT_HAND)); */
   /*  */
   /* joints.add(new JointTracker("LEFT_HAND", SimpleOpenNI.SKEL_LEFT_HAND)); */
+
+  // Special tracker for Right Hand
+  rightHandTracker = new JointTracker("", JointTrackerType.DIFF,
+        SimpleOpenNI.SKEL_LEFT_HAND, SimpleOpenNI.SKEL_LEFT_SHOULDER);
 }
 
 void draw(){
@@ -101,6 +108,24 @@ void draw(){
     }
   }
 
+  // Right Hand Tracker for circles
+  rightHandTracker.update(context);
+  if (rightHandTracker.isUpdated()){
+    if (RHCircles.size() >= 20){
+      RHCircles.remove();
+    }
+    int[] pos = rightHandTracker.getPos();
+    float cx = scaleNum(-600, 600, 0, displayWidth, pos[0]);
+    float cy = scaleNum(-600, 600, displayHeight, 0, pos[1]);
+    RHCircles.add(new Circle(cx, cy));
+  }
+
+  for (Circle rhc: RHCircles){
+    rhc.draw();
+    rhc.age();
+  }
+
+  // Kinect things
 
   context.update();
 
