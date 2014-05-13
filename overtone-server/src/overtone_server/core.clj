@@ -1,7 +1,7 @@
 (ns overtone-server.core
   (:require [overtone.live :refer :all]
             [overtone.inst.sampled-piano :refer :all]
-            [overtone.at-at :as at-at]
+            [overtone.examples.instruments.dubstep :refer :all]
             )
 )
 
@@ -11,6 +11,9 @@
 
 (def DEFAULT-SPEED 50.0)
 (def SPEED (atom DEFAULT-SPEED))
+(def RUNNING (atom true))
+
+(def INSTRUMENT (atom sampled-piano))
 
 
 (defn parse-midi [filename]
@@ -86,14 +89,6 @@
       (n-merge-notes (cons newvec (drop 2 vecs)))
       )
     ))
-  ;; (cond (= (count vecs) 1) (sort-by first @(first vecs))
-  ;;       :else               (let [v1  (sort-by first @(first vecs))
-  ;;                                 v2  (sort-by first @(second vecs))
-  ;;                                 newvec (merge-notes v1 v2)
-  ;;                                 ]
-  ;;                             (n-merge-notes (cons newvec (drop 2 vecs)))
-  ;;                             )
-  ;; ))
 
 
 (defn play-seq [notes i sleep]
@@ -109,16 +104,18 @@
         ;; Limit max speed
         speed-ratio (min speed-ratio 3.0)
         ]
-    
-    (Thread/sleep (* 2.5 speed-ratio sleep))
+    (if @RUNNING
+      (do
+        (Thread/sleep (* 2.5 speed-ratio sleep))
 
-    (sampled-piano (+ (second curr-v) @PITCH-OFFSET))
+        (sampled-piano (+ (second curr-v) @PITCH-OFFSET))
 
-    (let [next-sleep (- (first next-v) (first curr-v))]
-      (if (>= next-sleep 0)
-        (play-seq notes (inc i) (- (first next-v) (first curr-v)))
-        ))
-    )
+        (let [next-sleep (- (first next-v) (first curr-v))]
+          (if (>= next-sleep 0)
+            (play-seq notes (inc i) (- (first next-v) (first curr-v)))
+            ))
+        )
+      ))
   )
 
 
@@ -151,33 +148,47 @@
 
 (defn start-server [port]
   (let [server (osc-server port "osc-clj")]
-    (osc-listen server (fn [msg] (println msg)) :debug)
-    ;; (osc-handle server "/HAND_SPAN"   (partial ctl-reverb inst-id))
+    ;; (osc-listen server (fn [msg] (println msg)) :debug)
 
     (osc-handle server "/LEFT_HAND"  shift-pitch)
     (osc-handle server "/RIGHT_HAND_SPEED" adjust-speed)
 
-    ;; (osc-handle server "/LEFT_HAND"   (partial ctl-bpf inst-id))
-    ;; (osc-handle server "/head" on-rh-move)
-    ;; (osc-handle server "/r_elbow"
     )
+  )
+
+(defn get-notes [filename]
+  (let [notes   (parse-midi filename)
+        notes   (map (fn [x] (sort-by first @x)) notes)
+        result  (n-merge-notes notes)
+        ]
+    result
+    )
+  )
+
+(defn play-chord [inst notes] 
+  (if (> (count notes) 0) 
+    (do (inst (first notes)) 
+      (play-chord inst (drop 1 notes))
+      ) 
+    ))
+
+(defn play-mchord [inst note] (play-chord inst [note,(+ note 3),(+ note 7)]))
+(defn play-Mchord [inst note] (play-chord inst [note,(+ note 4),(+ note 7)]))
+
+(defn start-thread [result]
+    ; Start infinite loop in new thread
+    (.start (Thread. (fn []
+                      (while @RUNNING (play-seq result 0 0))
+                    )))
   )
 
 (defn mystart [filename]
-  (let [notes   (parse-midi filename)
-        notes   (map (fn [x] (sort-by first @x)) notes)
-        ;; v1      (sort-by first @(first notes))
-        ;; v2      (sort-by first @(second notes))
-        result  (n-merge-notes notes)
-        ]
-    (start-server 32000)
-
-    ; Start infinite loop in new thread
-    (.start (Thread. (fn []
-                      (while true (play-seq result 0 0))
-                    )))
-    )
+  (start-server 32000)
+  (start-thread (get-notes filename))
   )
+
+
+(defn set-running [b] (swap! RUNNING (fn [x] b)))
 
 
 (defn -main [& args]

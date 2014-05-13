@@ -115,7 +115,7 @@ void draw(){
       RHCircles.remove();
     }
     int[] pos = rightHandTracker.getPos();
-    float cx = scaleNum(-600, 600, 0, displayWidth, pos[0]);
+    float cx = scaleNum(-600, 600, displayWidth, 0, pos[0]);
     float cy = scaleNum(-600, 600, displayHeight, 0, pos[1]);
     RHCircles.add(new Circle(cx, cy));
   }
