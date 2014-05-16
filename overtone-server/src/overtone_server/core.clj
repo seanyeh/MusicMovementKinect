@@ -5,7 +5,6 @@
             )
 )
 
-
 ;; Global vars
 (def PITCH-OFFSET (atom 0))
 
@@ -14,6 +13,56 @@
 (def RUNNING (atom true))
 
 (def INSTRUMENT (atom sampled-piano))
+
+
+(def C 48)
+(def G 43)
+
+;; Modify-notes functions
+(def modify-notes identity)
+
+(defn pentatonic [base n]
+  (let [notes {0 0 1 -1
+               2 0
+               3 1 4 0 5 -1
+               6 1 7 0 8 -1
+               9 0 10 -1
+               11 1}
+        offset (notes (mod (+ base n) 12))]
+    (+ offset n)
+    ))
+(def pent (partial pentatonic 0))
+
+(defn blues [n]
+  (let [notes {0 0 1 -1
+               2 1 3 0 4 -1
+               5 0
+               6 0 7 -1
+               8 -1 9 -2
+               10 0 11 -1}
+        offset (notes (mod n 12))]
+    (+ offset n)
+    ))
+
+(defn random [n]
+  (let [r (dec (rand-int 3))]
+    (if (= (rand-int 2) 0)
+           (+ n r)
+           n
+      )
+    ))
+
+
+;; (definst beep [note 60]
+;;   (let [src (sin-osc (midicps note))
+;;         env (env-gen (perc 0.01 1.0) :action :free)]
+;;     (* src env)
+;;     ))
+
+
+(defn bpf-sweep [inst]
+  (for [i (range 110)] (at (+ (now) (* i 20)) (inst i)))
+  )
 
 
 (defn parse-midi [filename]
@@ -102,13 +151,13 @@
         speed-ratio (/ DEFAULT-SPEED norm-speed)
 
         ;; Limit max speed
-        speed-ratio (min speed-ratio 3.0)
+        speed-ratio (min speed-ratio 3.5)
         ]
     (if @RUNNING
       (do
         (Thread/sleep (* 2.5 speed-ratio sleep))
 
-        (sampled-piano (+ (second curr-v) @PITCH-OFFSET))
+        (sampled-piano (+ (modify-notes (second curr-v)) @PITCH-OFFSET))
 
         (let [next-sleep (- (first next-v) (first curr-v))]
           (if (>= next-sleep 0)
@@ -167,10 +216,11 @@
 
 (defn play-chord [inst notes] 
   (if (> (count notes) 0) 
-    (do (inst (first notes)) 
+    (do ((inst (first notes)) 
       (play-chord inst (drop 1 notes))
       ) 
     ))
+  )
 
 (defn play-mchord [inst note] (play-chord inst [note,(+ note 3),(+ note 7)]))
 (defn play-Mchord [inst note] (play-chord inst [note,(+ note 4),(+ note 7)]))
@@ -191,9 +241,22 @@
 (defn set-running [b] (swap! RUNNING (fn [x] b)))
 
 
+(defn reload []
+  (use 'overtone-server.core :reload))
+
+
+(defn autoreload [new-midi]
+  (set-running false)
+  (Thread/sleep 1000)
+  (set-running true)
+  (start-thread (get-notes new-midi))
+  )
+
+
 (defn -main [& args]
   (let [filename (or (first args) "bach1.mid")]
     (println "Starting!")
     (mystart filename)
     )
   )
+
