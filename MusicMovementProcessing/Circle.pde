@@ -4,7 +4,7 @@ class Circle{
   int radius = 40;
   int blurWidth = 40;
 
-  float opacityRatio = 1;
+  float opacityRatio = 0.8;
   float greenNum = 0;
   public Circle(float cx, float cy){
     x = cx;

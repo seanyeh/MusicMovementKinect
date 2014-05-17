@@ -6,7 +6,7 @@ class OscServer {
   NetAddress addr;
 
   public OscServer(){
-    osc = new OscP5(this, 12000);
+    osc = new OscP5(this, 32001);
     addr = new NetAddress("127.0.0.1", 32000);
   }
 
@@ -18,6 +18,17 @@ class OscServer {
     }
 
     osc.send(msg, addr);
+  }
+
+  /* incoming osc message are forwarded to the oscEvent method. */
+  void oscEvent(OscMessage msg) {
+    /* print the address pattern and the typetag of the received OscMessage */
+    String pattern = msg.addrPattern();
+
+    if (pattern.equals("/show_note")){
+      // Global oops :(
+      showNote();
+    }
   }
 }
 

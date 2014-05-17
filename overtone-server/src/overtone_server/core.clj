@@ -8,11 +8,13 @@
 ;; Global vars
 (def PITCH-OFFSET (atom 0))
 
-(def DEFAULT-SPEED 50.0)
+(def DEFAULT-SPEED 30.0)
 (def SPEED (atom DEFAULT-SPEED))
 (def RUNNING (atom true))
 
 (def INSTRUMENT (atom sampled-piano))
+
+(def D (dubstep :v 0))
 
 
 (def C 48)
@@ -148,14 +150,16 @@
 
         ; Avoid divide by 0
         norm-speed  (+ @SPEED 1)
-        speed-ratio (/ DEFAULT-SPEED norm-speed)
 
-        ;; Limit max speed
-        speed-ratio (min speed-ratio 3.5)
+        speed-ratio (/ norm-speed DEFAULT-SPEED)
+
+        ;; Limit max/min speed
+        speed-ratio (min speed-ratio 4)
+        speed-ratio (max speed-ratio 0.5)
         ]
     (if @RUNNING
       (do
-        (Thread/sleep (* 2.5 speed-ratio sleep))
+        (Thread/sleep (* 2 (/ 1 speed-ratio) sleep))
 
         (sampled-piano (+ (modify-notes (second curr-v)) @PITCH-OFFSET))
 
@@ -172,6 +176,7 @@
   (let [args  (:args msg)
         speed (map #(Math/abs %1) args)
         speed (reduce + speed)]
+    ;; (println "Speed: " speed)
     (swap! SPEED (fn [x] speed))
   )
   )
@@ -193,6 +198,16 @@
     ))
 
 
+(defn on-touch [msg]
+  (let [args (:args msg)
+        posx (first args)
+        posy (second args)
+        x (scale-num 0 550 20 80 posx)
+        y (scale-num 0 1000 1 10 posy)
+        ]
+    (ctl D :note x)
+    (ctl D :wobble y)
+    ))
 
 
 (defn start-server [port]
@@ -202,6 +217,7 @@
     (osc-handle server "/LEFT_HAND"  shift-pitch)
     (osc-handle server "/RIGHT_HAND_SPEED" adjust-speed)
 
+    (osc-handle server "/touch" on-touch)
     )
   )
 
@@ -254,7 +270,7 @@
 
 
 (defn -main [& args]
-  (let [filename (or (first args) "bach1.mid")]
+  (let [filename (or (first args) "midi/bach1.mid")]
     (println "Starting!")
     (mystart filename)
     )

@@ -1,4 +1,5 @@
 import SimpleOpenNI.*;
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 SimpleOpenNI context;
@@ -16,6 +17,8 @@ PVector      com = new PVector();
 
 OscServer oscServer;
 LinkedList<JointTracker> joints;
+ArrayList<NoteFlower> notes;
+
 Particle particles[];
 float minDistance = 120;
 
@@ -23,7 +26,7 @@ JointTracker rightHandTracker;
 LinkedList<Circle> RHCircles = new LinkedList<Circle>();
 
 void setup(){
-  size(displayWidth, displayHeight);
+  size(displayWidth, displayHeight, P3D);
 
   int numParticles = 250;
   particles = new Particle[numParticles];
@@ -74,19 +77,43 @@ void setup(){
   // Special tracker for Right Hand
   rightHandTracker = new JointTracker("", JointTrackerType.DIFF,
         SimpleOpenNI.SKEL_LEFT_HAND, SimpleOpenNI.SKEL_LEFT_SHOULDER);
+
+  notes = new ArrayList<NoteFlower>();
 }
 
+boolean showCam = false;
+
 void draw(){
-  background(0);
+  background(0, 0, 0);
+
+
+  if (showCam){
+    colorMode(HSB);
+    tint(0, 69, 66, 150);
+    image(context.rgbImage(), 0, 0, width, height);
+    noTint();
+    colorMode(RGB);
+  }
 
   strokeWeight(0);
   fill(255);
   stroke(255);
 
+
+  /* Draw Note Flowers */
+  for (int i = 0; i < notes.size(); i++){
+    notes.get(i).draw();
+    notes.get(i).age();
+
+    if (notes.get(i).isDead){
+      notes.remove(i);
+      i--;
+    }
+  }
+
+
   for (int i = 0; i < particles.length; i++){
     particles[i].draw();
-
-    // Now move
     particles[i].move();
   }
 
@@ -107,6 +134,7 @@ void draw(){
       }
     }
   }
+
 
   // Right Hand Tracker for circles
   rightHandTracker.update(context);
@@ -174,10 +202,18 @@ void draw(){
       jt.setUpdated(false);
 
     }
-
   }
 }
 
+void keyPressed() {
+  if (key == 'c'){
+    showCam = !showCam;
+  }
+
+  if (key == 't'){
+    notes.add(new NoteFlower());
+  }
+}
 
 float scaleNum(float inMin, float inMax, float outMin, float outMax, float x){
   float inNorm = inMax - inMin;
@@ -188,6 +224,9 @@ float scaleNum(float inMin, float inMax, float outMin, float outMax, float x){
 }
 
 
+void showNote(){
+
+}
 
 // draw the skeleton with the selected joints
 void drawSkeleton(int userId){
